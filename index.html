@@ -1,0 +1,269 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+      }
+    }
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { MindARThree } from 'mindar-image-three';
+
+      let activeMindAR = null;  // Menyimpan objek MindARThree yang aktif
+      let activeModel = null;
+      let isDragging = false;
+      let prevX = 0;
+      let prevY = 0;
+
+      const setups = [
+      {
+        targetImage: './assets/targets.mind',
+        modelPath: './assets/router1.glb',  // Update ke model yang menunjukkan bagian dalam router
+        description: 'Router ini berfungsi sebagai pusat distribusi koneksi internet dalam jaringan rumah atau kantor. Dilengkapi dengan fitur-fitur canggih untuk pengaturan dan keamanan jaringan. Model ini menampilkan bagian dalam router untuk menunjukkan komponen-komponen utama seperti port, chip, dan sirkuit internal.'
+      },
+        {
+          targetImage: './assets/targets2.mind',
+          modelPath: './assets/PLASHSPEED.glb',
+          description: 'Router 5G RJ35 adalah solusi canggih untuk konektivitas internet dengan kecepatan tinggi dan latensi rendah.'
+        },
+        {
+          targetImage: './assets/targets3.mind',
+          modelPath: './assets/router3.glb',
+          description: 'Router 3: Router ini dirancang untuk kecepatan transfer data yang optimal, ideal untuk penggunaan di kantor dengan koneksi yang membutuhkan bandwidth tinggi.'
+        },
+        {
+          targetImage: './assets/targets4.mind',
+          modelPath: './assets/router4.glb',  
+          description: 'CNET CQR-980 adalah router canggih yang dirancang untuk memberikan konektivitas stabil dan kecepatan tinggi. Dilengkapi dengan teknologi terbaru untuk mendukung berbagai perangkat dalam jaringan rumah atau kantor. Dengan desain kompak dan kinerja yang optimal, CQR-980 menjadi pilihan ideal untuk kebutuhan internet yang handal.'
+        },
+        {
+          targetImage: './assets/targets5.mind',
+          modelPath: './assets/router5.glb',
+          description: 'Linksys adalah router yang dikenal dengan keandalan dan kemampuannya untuk memberikan konektivitas yang stabil dan aman. Dirancang untuk penggunaan rumah dan kantor, Linksys menawarkan teknologi Wi-Fi canggih untuk mendukung berbagai perangkat dalam jaringan.'
+        }
+      ];
+
+      const startAR = async (setup) => {
+        const mindarThree = new MindARThree({
+          container: document.querySelector("#ar-container"),
+          imageTargetSrc: setup.targetImage,
+        });
+
+        const { renderer, scene, camera } = mindarThree;
+        const anchor = mindarThree.addAnchor(0);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(0, 1, 1);
+        scene.add(directionalLight);
+
+        const loader = new GLTFLoader();
+        loader.load(setup.modelPath, (gltf) => {
+          const model = gltf.scene;
+          model.scale.set(0.5, 0.5, 0.5);
+          model.position.set(0, 0, 0);
+          model.rotation.set(0, Math.PI / 2, 0);
+          anchor.group.add(model);
+          activeModel = model;
+        }, undefined, (error) => {
+          console.error("Error loading model:", error);
+        });
+
+        anchor.onTargetFound = () => {
+          document.querySelector("#description").innerHTML = `
+            <h2>Deskripsi AR</h2>
+            <p>${setup.description}</p>
+          `;
+          document.querySelector("#description").style.display = "block";
+        };
+
+        anchor.onTargetLost = () => {
+          document.querySelector("#description").style.display = "none";
+        };
+
+        activeMindAR = mindarThree;
+
+        await mindarThree.start();
+        renderer.setAnimationLoop(() => {
+          renderer.render(scene, camera);
+        });
+
+        const container = document.querySelector("#ar-container");
+
+        container.addEventListener("touchstart", (event) => {
+          if (event.touches.length === 1) {
+            isDragging = true;
+            prevX = event.touches[0].pageX;
+            prevY = event.touches[0].pageY;
+          }
+        });
+
+        container.addEventListener("touchmove", (event) => {
+          if (!isDragging || event.touches.length !== 1 || !activeModel) return;
+
+          const deltaX = event.touches[0].pageX - prevX;
+          const deltaY = event.touches[0].pageY - prevY;
+
+          activeModel.rotation.y += deltaX * 0.005;
+          activeModel.rotation.x += deltaY * 0.005;
+
+          prevX = event.touches[0].pageX;
+          prevY = event.touches[0].pageY;
+        });
+
+        container.addEventListener("touchend", () => {
+          isDragging = false;
+        });
+
+        container.addEventListener("mousedown", (event) => {
+          isDragging = true;
+          prevX = event.clientX;
+          prevY = event.clientY;
+        });
+
+        container.addEventListener("mousemove", (event) => {
+          if (!isDragging || !activeModel) return;
+
+          const deltaX = event.clientX - prevX;
+          const deltaY = event.clientY - prevY;
+
+          activeModel.rotation.y += deltaX * 0.005;
+          activeModel.rotation.x += deltaY * 0.005;
+
+          prevX = event.clientX;
+          prevY = event.clientY;
+        });
+
+        container.addEventListener("mouseup", () => {
+          isDragging = false;
+        });
+
+        container.addEventListener("mouseleave", () => {
+          isDragging = false;
+        });
+      };
+
+      document.querySelector("#startRouter1").addEventListener("click", () => {
+        startAR(setups[0]);
+      });
+
+      document.querySelector("#startRouter2").addEventListener("click", () => {
+        startAR(setups[1]);
+      });
+
+      document.querySelector("#startRouter3").addEventListener("click", () => {
+        startAR(setups[2]);
+      });
+
+      document.querySelector("#startRouter4").addEventListener("click", () => {
+        startAR(setups[3]);
+      });
+
+      document.querySelector("#startRouter5").addEventListener("click", () => {
+        startAR(setups[4]);
+      });
+
+      document.querySelector("#scaleUp").addEventListener("click", () => {
+        if (activeModel) {
+          activeModel.scale.multiplyScalar(1.1);
+        }
+      });
+
+      document.querySelector("#scaleDown").addEventListener("click", () => {
+        if (activeModel) {
+          activeModel.scale.multiplyScalar(0.9);
+        }
+      });
+    </script>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      #ar-container {
+        flex: 1;
+        width: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      #description {
+        display: none;
+        background: #ffffff;
+        border-top: 1px solid #ddd;
+        padding: 10px;
+        box-sizing: border-box;
+        overflow-y: auto;
+      }
+
+      #description h2 {
+        margin: 0 0 10px;
+        color: #333;
+      }
+
+      #control {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 5px;
+        z-index: 1000;
+      }
+
+      #control button {
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        padding: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      #control button:hover {
+        background: #0056b3;
+      }
+
+      @media (max-width: 768px) {
+        #control {
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        #control button {
+          font-size: 12px;
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="control">
+      <button id="startRouter1">Start Router 1</button>
+      <button id="startRouter2">Start Router 2</button>
+      <button id="startRouter3">Start Router 3</button>
+      <button id="startRouter4">Start Router 4</button>
+      <button id="startRouter5">Start Router 5</button> <!-- Tombol untuk router 5 -->
+      <button id="scaleUp">Perbesar</button>
+      <button id="scaleDown">Perkecil</button>
+    </div>
+    <div id="ar-container"></div>
+    <div id="description"></div>
+  </body>
+</html>
